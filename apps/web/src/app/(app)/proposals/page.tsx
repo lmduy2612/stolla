@@ -32,6 +32,10 @@ import {
   type ProposalMetadataErrors,
   type ProposalMetadataField,
 } from "@/lib/proposal-metadata";
+import {
+  readProposalStateFromQuery,
+  syncProposalStateToUrl,
+} from "@/lib/proposal-state-query";
 
 type ActionStatus = {
   message: string;
@@ -58,7 +62,20 @@ export default function ProposalsPage() {
   );
   const [status, setStatus] = useState<ActionStatus | null>(null);
   const proposeLifecycle = useOperationLifecycle();
-  const [stateFilter, setStateFilter] = useState<StateFilter>(ALL_FILTER);
+  const [stateFilter, setStateFilter] = useState<StateFilter>(() => {
+    return typeof window !== "undefined"
+      ? readProposalStateFromQuery()
+      : ALL_FILTER;
+  });
+
+  useEffect(() => {
+    const onPopState = () => {
+      setStateFilter(readProposalStateFromQuery());
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   const [states, setStates] = useState<Record<string, ProposalState | "unknown">>(
     {},
   );
@@ -197,6 +214,14 @@ export default function ProposalsPage() {
     [states],
   );
 
+  const selectableStates = useMemo(() => {
+    const set = new Set<ProposalState>(availableStates);
+    if (stateFilter !== ALL_FILTER) {
+      set.add(stateFilter);
+    }
+    return PROPOSAL_STATE_ORDER.filter((state) => set.has(state));
+  }, [availableStates, stateFilter]);
+
   const filteredIds = useMemo(
     () =>
       stateFilter === ALL_FILTER
@@ -210,14 +235,6 @@ export default function ProposalsPage() {
     [filteredIds, visibleCount],
   );
   const canLoadMore = visibleCount < filteredIds.length;
-
-  useEffect(() => {
-    if (stateFilter !== ALL_FILTER && !availableStates.includes(stateFilter)) {
-      // Drop stale filter when the available set shrinks after a reload.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setStateFilter(ALL_FILTER);
-    }
-  }, [availableStates, stateFilter]);
 
 
   function updateMetadataField(field: ProposalMetadataField, value: string) {
@@ -460,17 +477,18 @@ export default function ProposalsPage() {
                   stateFilter === ALL_FILTER ? ALL_FILTER : String(stateFilter)
                 }
                 onChange={(e) => {
-                  setStateFilter(
+                  const nextFilter: StateFilter =
                     e.target.value === ALL_FILTER
                       ? ALL_FILTER
-                      : (Number(e.target.value) as ProposalState),
-                  );
+                      : (Number(e.target.value) as ProposalState);
+                  setStateFilter(nextFilter);
+                  syncProposalStateToUrl(nextFilter);
                   setVisibleCount(LOAD_MORE_PAGE_SIZE);
                 }}
                 className="rounded-lg border border-slate-700 bg-[#0b0f19] px-3 py-1.5 text-sm text-slate-100"
               >
                 <option value={ALL_FILTER}>All</option>
-                {availableStates.map((state) => (
+                {selectableStates.map((state) => (
                   <option key={state} value={state}>
                     {PROPOSAL_STATE_LABELS[state]}
                   </option>

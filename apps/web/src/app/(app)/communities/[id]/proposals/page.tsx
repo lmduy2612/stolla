@@ -19,6 +19,10 @@ import {
   PROPOSAL_STATE_LABELS,
   PROPOSAL_STATE_ORDER,
 } from "@/lib/proposalState";
+import {
+  readProposalStateFromQuery,
+  syncProposalStateToUrl,
+} from "@/lib/proposal-state-query";
 
 const PAGE_SIZE = 10;
 const ALL_STATES = "all";
@@ -38,9 +42,20 @@ function ScopedProposalHistory({ community }: { community: CommunityView }) {
     Record<string, ProposalState | "unavailable">
   >({});
   const [retrying, setRetrying] = useState<string[]>([]);
-  const [filter, setFilter] = useState<typeof ALL_STATES | ProposalState>(
-    ALL_STATES,
-  );
+  const [filter, setFilter] = useState<typeof ALL_STATES | ProposalState>(() => {
+    return typeof window !== "undefined"
+      ? readProposalStateFromQuery()
+      : ALL_STATES;
+  });
+
+  useEffect(() => {
+    const onPopState = () => {
+      setFilter(readProposalStateFromQuery());
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const loadState = useCallback(
@@ -80,6 +95,13 @@ function ScopedProposalHistory({ community }: { community: CommunityView }) {
   const availableStates = PROPOSAL_STATE_ORDER.filter((state) =>
     Object.values(states).includes(state),
   );
+  const selectableStates = useMemo(() => {
+    const set = new Set<ProposalState>(availableStates);
+    if (filter !== ALL_STATES) {
+      set.add(filter);
+    }
+    return PROPOSAL_STATE_ORDER.filter((state) => set.has(state));
+  }, [availableStates, filter]);
   const filtered =
     filter === ALL_STATES
       ? proposals
@@ -131,17 +153,18 @@ function ScopedProposalHistory({ community }: { community: CommunityView }) {
                 aria-label="Filter community proposals by state"
                 value={String(filter)}
                 onChange={(event) => {
-                  setFilter(
+                  const nextFilter =
                     event.target.value === ALL_STATES
                       ? ALL_STATES
-                      : (Number(event.target.value) as ProposalState),
-                  );
+                      : (Number(event.target.value) as ProposalState);
+                  setFilter(nextFilter);
+                  syncProposalStateToUrl(nextFilter);
                   setVisibleCount(PAGE_SIZE);
                 }}
                 className="min-h-10 rounded-lg border border-slate-700 bg-[#0b0f19] px-3 text-slate-100"
               >
                 <option value={ALL_STATES}>All</option>
-                {availableStates.map((state) => (
+                {selectableStates.map((state) => (
                   <option key={state} value={state}>
                     {PROPOSAL_STATE_LABELS[state]}
                   </option>
