@@ -15,6 +15,7 @@ import type {
   CommunityView,
   GovernanceSnapshot,
 } from "./types";
+import { getCommunityMetadataOverride } from "./metadataOverrides";
 
 const EMPTY_GOVERNANCE: GovernanceSnapshot = {
   votingDelay: null,
@@ -222,13 +223,22 @@ async function loadGovernance(
 async function hydrateRecord(
   record: CommunityRegistryRecord,
 ): Promise<CommunityView> {
+  const override = getCommunityMetadataOverride(record.id);
+  const effectiveRecord = override
+    ? {
+        ...record,
+        metadataUri: override.metadataUri,
+        metadataHash: override.metadataHash,
+      }
+    : record;
+
   const [metadataResult, governanceResult] = await Promise.allSettled([
-    loadMetadata(record),
-    loadGovernance(record),
+    override ? Promise.resolve(override.metadata) : loadMetadata(effectiveRecord),
+    loadGovernance(effectiveRecord),
   ]);
 
   return {
-    record,
+    record: effectiveRecord,
     metadata:
       metadataResult.status === "fulfilled" ? metadataResult.value : null,
     metadataError:
@@ -301,7 +311,27 @@ export async function getCommunity(
 ): Promise<CommunityDetailResult> {
   if (!isCommunityId(communityId)) return { status: "not-found" };
   const mocked = e2eGetCommunity(communityId);
-  if (mocked) return mocked;
+  if (mocked) {
+    if (mocked.status === "found") {
+      const override = getCommunityMetadataOverride(communityId);
+      if (override) {
+        return {
+          status: "found",
+          community: {
+            ...mocked.community,
+            record: {
+              ...mocked.community.record,
+              metadataUri: override.metadataUri,
+              metadataHash: override.metadataHash,
+            },
+            metadata: override.metadata,
+            metadataError: null,
+          },
+        };
+      }
+    }
+    return mocked;
+  }
 
   const rawRecord = await readContract(
     requireCommunityFactoryId(),

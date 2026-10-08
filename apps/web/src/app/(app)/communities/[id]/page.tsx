@@ -9,6 +9,7 @@ import { AppLinkButton } from "@/components/ui/AppLinkButton";
 import { LiveStatus } from "@/components/ui/LiveStatus";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useCommunityRegistry } from "@/lib/community/CommunityRegistryProvider";
+import { useWallet } from "@/context/WalletProvider";
 import type {
   CommunityDetailResult,
   CommunityRegistryRecord,
@@ -53,7 +54,7 @@ function ContractAddress({
             type="button"
             onClick={() => onCopy(label, contractId)}
             className="min-h-11 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
-            aria-label={`Copy ${label}`}
+            aria-label={`Copy full ${label} contract address`}
           >
             Copy address
           </button>
@@ -63,7 +64,7 @@ function ContractAddress({
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-11 items-center rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
-              aria-label={`Open ${label} in explorer`}
+              aria-label={`View ${label} on Stellar Expert`}
             >
               Open explorer
             </a>
@@ -78,6 +79,7 @@ function ContractAddress({
 export default function CommunityDetailPage() {
   const params = useParams<{ id: string }>();
   const communityId = params.id;
+  const { address } = useWallet();
   const registry = useCommunityRegistry();
   const [result, setResult] = useState<CommunityDetailResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -327,6 +329,14 @@ export default function CommunityDetailPage() {
         >
           Membership actions
         </AppLinkButton>
+        {address && address.toLowerCase() === record.communityOwner.toLowerCase() && (
+          <AppLinkButton
+            href={`/communities/${record.id}/settings`}
+            tone="secondary"
+          >
+            Community settings
+          </AppLinkButton>
+        )}
       </div>
 
       <section

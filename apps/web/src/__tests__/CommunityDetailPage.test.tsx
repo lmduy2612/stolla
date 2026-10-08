@@ -25,6 +25,10 @@ vi.mock("@/components/community/CommunityMemberRoster", () => ({
   CommunityMemberRoster: () => <div data-testid="community-member-roster">Member Roster</div>,
 }));
 
+vi.mock("@/context/WalletProvider", () => ({
+  useWallet: () => ({ address: null, isConnecting: false }),
+}));
+
 import CommunityDetailPage from "@/app/(app)/communities/[id]/page";
 import {
   MOCK_ACCOUNT_CAROL,
