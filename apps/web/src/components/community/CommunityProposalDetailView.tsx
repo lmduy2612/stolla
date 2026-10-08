@@ -104,14 +104,14 @@ function CommunityProposalDetailPanel({
 
   const cancelAction = useGovernorProposalAction({
     governorAddress: community.record.governorContract,
-    proposalId</proposalId>,
+    proposalId,
     action: "cancel",
     onSuccess: refresh,
   });
 
   const executeAction = useGovernorProposalAction({
     governorAddress: community.record.governorContract,
-    proposalId</proposalId>,
+    proposalId,
     action: "execute",
     onSuccess: refresh,
   });
