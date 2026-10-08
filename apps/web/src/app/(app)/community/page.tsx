@@ -34,6 +34,7 @@ import {
 import { useCommunityRegistry } from "@/lib/community/CommunityRegistryProvider";
 import type { Community } from "@/lib/community/types";
 import { contractIds } from "@/lib/stellar";
+import { MAINNET_RUNBOOK_URL, areMainnetWritesAllowed } from "@/lib/network";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { AppButton } from "@/components/ui/AppButton";
 import { LiveStatus } from "@/components/ui/LiveStatus";
@@ -307,6 +308,7 @@ export default function CommunityPage() {
       setStatus(null);
       return;
     }
+    if (!areMainnetWritesAllowed()) return;
     if (mintLifecycle.isInFlight || pinState.kind === "pinning") return;
 
     setStatus(null);
@@ -348,6 +350,7 @@ export default function CommunityPage() {
       setStatus({ message: "Connect your wallet first.", tone: "error" });
       return;
     }
+    if (!areMainnetWritesAllowed()) return;
     if (delegationLifecycle.isInFlight) return;
 
     setStatus(null);
@@ -515,7 +518,8 @@ export default function CommunityPage() {
                 disabled={
                   !address ||
                   mintLifecycle.isInFlight ||
-                  delegationLifecycle.isInFlight
+                  delegationLifecycle.isInFlight ||
+                  !areMainnetWritesAllowed()
                 }
                 className="mt-4"
               >
@@ -749,7 +753,8 @@ export default function CommunityPage() {
                   pinState.kind === "pinning" ||
                   pinState.kind === "error" ||
                   mintLifecycle.isInFlight ||
-                  delegationLifecycle.isInFlight
+                  delegationLifecycle.isInFlight ||
+                  !areMainnetWritesAllowed()
                 }
                 className="w-full sm:w-auto"
               >
@@ -759,6 +764,24 @@ export default function CommunityPage() {
                     ? "Mint in progress…"
                     : "Mint NFT"}
               </AppButton>
+              {!areMainnetWritesAllowed() && (
+                <LiveStatus
+                  tone="routine"
+                  className="mt-3 rounded-lg border border-amber-800/70 bg-amber-950/30 p-3 text-sm text-amber-200"
+                >
+                  Mainnet writes are disabled. Review{" "}
+                  <a
+                    href={MAINNET_RUNBOOK_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline font-medium hover:text-slate-100"
+                  >
+                    docs/testnet-to-mainnet-runbook.md
+                  </a>{" "}
+                  before enabling them with{" "}
+                  <code className="font-mono">NEXT_PUBLIC_ALLOW_MAINNET_WRITES</code>.
+                </LiveStatus>
+              )}
               <TransactionLifecycleStatus
                 stage={mintLifecycle.stage}
                 operationLabel="Mint"

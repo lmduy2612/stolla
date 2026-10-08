@@ -417,4 +417,64 @@ describe("CommunityPage mint lifecycle", () => {
     expect(screen.getByLabelText(/Recipient address/i)).toHaveValue("GKEEP");
     expect(screen.getByLabelText(/Display name/i)).toHaveValue("Stolla Member #1");
   });
+
+  it("gates minting on mainnet when writes are disabled and displays runbook link", async () => {
+    const originalNetwork = process.env.NEXT_PUBLIC_STELLAR_NETWORK;
+    const originalWrites = process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES;
+    try {
+      process.env.NEXT_PUBLIC_STELLAR_NETWORK = "mainnet";
+      delete process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES;
+
+      render(<CommunityPage />);
+      expect(
+        await screen.findByText(/Mainnet writes are disabled/),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: "docs/testnet-to-mainnet-runbook.md" }),
+      ).toHaveAttribute(
+        "href",
+        "https://github.com/stolla-labs/stolla/blob/main/docs/testnet-to-mainnet-runbook.md",
+      );
+
+      const mintButton = screen.getByRole("button", { name: "Mint NFT" });
+      expect(mintButton).toBeDisabled();
+      fireEvent.click(mintButton);
+      expect(mocks.pinFile).not.toHaveBeenCalled();
+      expect(mocks.createNftClient).not.toHaveBeenCalled();
+    } finally {
+      process.env.NEXT_PUBLIC_STELLAR_NETWORK = originalNetwork;
+      if (originalWrites !== undefined) {
+        process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES = originalWrites;
+      } else {
+        delete process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES;
+      }
+    }
+  });
+
+  it("allows minting on mainnet when NEXT_PUBLIC_ALLOW_MAINNET_WRITES=true", async () => {
+    const originalNetwork = process.env.NEXT_PUBLIC_STELLAR_NETWORK;
+    const originalWrites = process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES;
+    try {
+      process.env.NEXT_PUBLIC_STELLAR_NETWORK = "mainnet";
+      process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES = "true";
+
+      render(<CommunityPage />);
+      expect(
+        screen.queryByText(/Mainnet writes are disabled/),
+      ).not.toBeInTheDocument();
+
+      fireEvent.change(await screen.findByLabelText(/Recipient address/i), {
+        target: { value: "GRECIPIENT" },
+      });
+      fillMembership();
+      expect(screen.getByRole("button", { name: "Mint NFT" })).not.toBeDisabled();
+    } finally {
+      process.env.NEXT_PUBLIC_STELLAR_NETWORK = originalNetwork;
+      if (originalWrites !== undefined) {
+        process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES = originalWrites;
+      } else {
+        delete process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES;
+      }
+    }
+  });
 });

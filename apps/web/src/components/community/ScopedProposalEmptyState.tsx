@@ -7,6 +7,7 @@ import { useWallet } from "@/context/WalletProvider";
 import { createGovernorClient, createNftClient, createReadOnlyNftClient, storeProposalIdFor } from "@/lib/contracts";
 import { useOperationLifecycle } from "@/hooks/useOperationLifecycle";
 import { validateProposalMetadataDraft, hasProposalMetadataErrors, serializeProposalMetadata, type ProposalMetadataDraft, type ProposalMetadataErrors, type ProposalMetadataField } from "@/lib/proposal-metadata";
+import { MAINNET_RUNBOOK_URL, areMainnetWritesAllowed } from "@/lib/network";
 import { ProposalMetadataFields } from "@/components/proposal/ProposalMetadataFields";
 import { TransactionLifecycleStatus } from "@/components/TransactionLifecycleStatus";
 import { AppButton } from "@/components/ui/AppButton";
@@ -79,7 +80,7 @@ export function ScopedProposalEmptyState({
   }
 
   async function createProposal() {
-    if (!address || !canPropose || creation.isInFlight) return;
+    if (!address || !canPropose || creation.isInFlight || !areMainnetWritesAllowed()) return;
     const nextErrors = validateProposalMetadataDraft(draft);
     if (hasProposalMetadataErrors(nextErrors)) {
       setErrors(nextErrors);
@@ -145,9 +146,29 @@ export function ScopedProposalEmptyState({
         <div className="mt-4 border-t border-slate-700 pt-4">
           <h3 className="font-semibold text-slate-200">Create proposal</h3>
           <ProposalMetadataFields value={draft} errors={errors} onChange={updateDraft} />
-          <AppButton tone="primary" className="mt-3" onClick={() => void createProposal()} disabled={creation.isInFlight}>
+          <AppButton
+            tone="primary"
+            className="mt-3"
+            onClick={() => void createProposal()}
+            disabled={creation.isInFlight || !areMainnetWritesAllowed()}
+          >
             {creation.isInFlight ? "Creating proposal…" : "Create proposal"}
           </AppButton>
+          {!areMainnetWritesAllowed() && (
+            <p className="mt-2 text-sm text-amber-200">
+              Mainnet proposal creation is disabled. Review{" "}
+              <a
+                href={MAINNET_RUNBOOK_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline font-medium hover:text-slate-100"
+              >
+                docs/testnet-to-mainnet-runbook.md
+              </a>{" "}
+              before enabling writes with{" "}
+              <code className="font-mono">NEXT_PUBLIC_ALLOW_MAINNET_WRITES</code>.
+            </p>
+          )}
           <TransactionLifecycleStatus stage={creation.stage} operationLabel="Propose" error={creation.error} />
         </div>
       )}

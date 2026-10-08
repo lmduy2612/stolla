@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { Networks } from "@stellar/stellar-sdk";
 import {
   NETWORKS,
+  MAINNET_RUNBOOK_PATH,
+  MAINNET_RUNBOOK_URL,
   NetworkCapabilityError,
   NetworkMismatchError,
+  areMainnetWritesAllowed,
   buildNetworkCapabilities,
   compareNetworks,
   contractUrl,
@@ -115,7 +118,7 @@ describe("network capability matrix", () => {
     expect(listUnavailableCapabilities(capabilities)).toEqual([]);
   });
 
-  it("names missing factory and discovery capabilities", () => {
+  it("names missing factory, discovery, and mainnet write capabilities", () => {
     const capabilities = buildNetworkCapabilities("mainnet", {
       NEXT_PUBLIC_STELLAR_MAINNET_RPC_URL: "https://rpc.example",
     });
@@ -123,6 +126,7 @@ describe("network capability matrix", () => {
       "communityFactory",
       "legacyContracts",
       "proposalDiscovery",
+      "mainnetWrites",
     ]);
     expect(() =>
       requireNetworkCapability(capabilities, "communityFactory"),
@@ -143,5 +147,72 @@ describe("network capability matrix", () => {
       NEXT_PUBLIC_GOVERNOR_START_LEDGER: "0",
     });
     expect(capabilities.proposalDiscovery.available).toBe(false);
+  });
+
+  it("allows writes on testnet by default", () => {
+    const capabilities = createNetworkCapabilitiesFixture("testnet");
+    expect(capabilities.mainnetWrites).toEqual({
+      available: true,
+      allowed: true,
+    });
+    expect(areMainnetWritesAllowed(capabilities)).toBe(true);
+    expect(requireNetworkCapability(capabilities, "mainnetWrites")).toEqual({
+      available: true,
+      allowed: true,
+    });
+  });
+
+  it("blocks mainnet writes by default and references the runbook", () => {
+    const capabilities = buildNetworkCapabilities("mainnet", {
+      NEXT_PUBLIC_STELLAR_MAINNET_RPC_URL: "https://rpc.example",
+    });
+    expect(capabilities.mainnetWrites.available).toBe(false);
+    expect(capabilities.mainnetWrites.allowed).toBe(false);
+    if (!capabilities.mainnetWrites.available) {
+      expect(capabilities.mainnetWrites.reason).toContain(MAINNET_RUNBOOK_PATH);
+      expect(capabilities.mainnetWrites.requiredEnvironment).toContain(
+        "NEXT_PUBLIC_ALLOW_MAINNET_WRITES",
+      );
+    }
+    expect(areMainnetWritesAllowed(capabilities)).toBe(false);
+    expect(() =>
+      requireNetworkCapability(capabilities, "mainnetWrites"),
+    ).toThrowError(NetworkCapabilityError);
+  });
+
+  it("enables mainnet writes with NEXT_PUBLIC_ALLOW_MAINNET_WRITES flag", () => {
+    const capabilities = buildNetworkCapabilities("mainnet", {
+      NEXT_PUBLIC_STELLAR_MAINNET_RPC_URL: "https://rpc.example",
+      NEXT_PUBLIC_ALLOW_MAINNET_WRITES: "true",
+    });
+    expect(capabilities.mainnetWrites).toEqual({
+      available: true,
+      allowed: true,
+    });
+    expect(areMainnetWritesAllowed(capabilities)).toBe(true);
+    expect(listUnavailableCapabilities(capabilities)).not.toContain(
+      "mainnetWrites",
+    );
+  });
+
+  it("enables mainnet writes with ALLOW_MAINNET_WRITES=1 flag", () => {
+    const capabilities = buildNetworkCapabilities("mainnet", {
+      NEXT_PUBLIC_STELLAR_MAINNET_RPC_URL: "https://rpc.example",
+      ALLOW_MAINNET_WRITES: "1",
+    });
+    expect(capabilities.mainnetWrites).toEqual({
+      available: true,
+      allowed: true,
+    });
+    expect(areMainnetWritesAllowed(capabilities)).toBe(true);
+  });
+
+  it("keeps mainnet writes blocked when flag is explicit false or invalid", () => {
+    const capabilities = buildNetworkCapabilities("mainnet", {
+      NEXT_PUBLIC_STELLAR_MAINNET_RPC_URL: "https://rpc.example",
+      NEXT_PUBLIC_ALLOW_MAINNET_WRITES: "false",
+    });
+    expect(capabilities.mainnetWrites.available).toBe(false);
+    expect(areMainnetWritesAllowed(capabilities)).toBe(false);
   });
 });

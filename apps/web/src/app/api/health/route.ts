@@ -50,6 +50,7 @@ function buildResponse(): { response: HealthResponse; statusCode: number } {
         communityFactory: factoryConfigured,
         legacyContracts: legacyConfigured,
         proposalDiscovery: capabilities.proposalDiscovery.available,
+        mainnetWrites: capabilities.mainnetWrites.available,
       },
       unavailableCapabilities,
     },

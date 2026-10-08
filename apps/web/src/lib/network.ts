@@ -126,13 +126,18 @@ export function contractUrl(network: StellarNetwork, contractId: string) {
   return explorerUrl(network, "contract", contractId);
 }
 
+export const MAINNET_RUNBOOK_URL =
+  "https://github.com/stolla-labs/stolla/blob/main/docs/testnet-to-mainnet-runbook.md";
+export const MAINNET_RUNBOOK_PATH = "docs/testnet-to-mainnet-runbook.md";
+
 export type ActiveNetworkId = Exclude<NetworkId, "futurenet">;
 export type NetworkCapabilityName =
   | "rpc"
   | "explorer"
   | "communityFactory"
   | "legacyContracts"
-  | "proposalDiscovery";
+  | "proposalDiscovery"
+  | "mainnetWrites";
 
 export type CapabilityAvailability =
   | { available: true }
@@ -150,6 +155,7 @@ export type NetworkCapabilities = {
   communityFactory: CapabilityAvailability & { contractId: string };
   legacyContracts: CapabilityAvailability & { nftContractId: string; governorContractId: string };
   proposalDiscovery: CapabilityAvailability & { governorContractId: string; startLedger: number | null };
+  mainnetWrites: CapabilityAvailability & { allowed: boolean };
 };
 
 type CapabilityEnvironment = Record<string, string | undefined>;
@@ -186,6 +192,23 @@ export function buildNetworkCapabilities(
   const legacyNft = configured(environment.NEXT_PUBLIC_NFT_CONTRACT_ID);
   const legacyGovernor = configured(environment.NEXT_PUBLIC_GOVERNOR_CONTRACT_ID);
   const startLedger = parsePositiveLedger(environment.NEXT_PUBLIC_GOVERNOR_START_LEDGER);
+  const allowWritesRaw =
+    environment.NEXT_PUBLIC_ALLOW_MAINNET_WRITES ??
+    environment.ALLOW_MAINNET_WRITES;
+  const allowMainnetWrites =
+    allowWritesRaw?.trim().toLowerCase() === "true" ||
+    allowWritesRaw?.trim() === "1";
+
+  const mainnetWritesAllowed = id === "testnet" || allowMainnetWrites;
+  const mainnetWrites = mainnetWritesAllowed
+    ? { available: true as const, allowed: true }
+    : {
+        ...unavailable(
+          `Mainnet writes are disabled. Review ${MAINNET_RUNBOOK_PATH} before enabling them with NEXT_PUBLIC_ALLOW_MAINNET_WRITES.`,
+          "NEXT_PUBLIC_ALLOW_MAINNET_WRITES",
+        ),
+        allowed: false,
+      };
 
   return {
     network,
@@ -215,6 +238,7 @@ export function buildNetworkCapabilities(
       startLedger,
       ...(legacyGovernor && startLedger ? { available: true as const } : unavailable("Proposal discovery is unavailable for the active deployment.", "NEXT_PUBLIC_GOVERNOR_CONTRACT_ID", "NEXT_PUBLIC_GOVERNOR_START_LEDGER")),
     },
+    mainnetWrites,
   };
 }
 
@@ -242,6 +266,30 @@ export function requireNetworkCapability<K extends NetworkCapabilityName>(
 }
 
 export function listUnavailableCapabilities(capabilities: NetworkCapabilities) {
-  const names: NetworkCapabilityName[] = ["rpc", "explorer", "communityFactory", "legacyContracts", "proposalDiscovery"];
+  const names: NetworkCapabilityName[] = [
+    "rpc",
+    "explorer",
+    "communityFactory",
+    "legacyContracts",
+    "proposalDiscovery",
+    "mainnetWrites",
+  ];
   return names.filter((name) => !capabilities[name].available);
+}
+
+export function areMainnetWritesAllowed(
+  target?: ActiveNetworkId | Partial<NetworkCapabilities> | null,
+): boolean {
+  if (target && typeof target === "object" && "mainnetWrites" in target) {
+    return target.mainnetWrites?.available ?? true;
+  }
+  const networkId: ActiveNetworkId =
+    typeof target === "string"
+      ? target
+      : resolveActiveNetworkId(process.env.NEXT_PUBLIC_STELLAR_NETWORK);
+  if (networkId !== "mainnet") return true;
+  const flag =
+    process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES ??
+    process.env.ALLOW_MAINNET_WRITES;
+  return flag?.trim().toLowerCase() === "true" || flag?.trim() === "1";
 }

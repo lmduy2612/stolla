@@ -24,7 +24,13 @@ import type {
   GovernanceDraft,
 } from "@/lib/community/schema";
 import { getE2EBridge } from "@/lib/e2eMock";
-import { config } from "@/lib/stellar";
+import { activeCapabilities, config } from "@/lib/stellar";
+import {
+  MAINNET_RUNBOOK_URL,
+  NETWORKS,
+  areMainnetWritesAllowed,
+  buildNetworkCapabilities,
+} from "@/lib/network";
 import { buildStellarExplorerTxUrl } from "@/lib/stellarExplorer";
 import type { TransactionLifecycleStage } from "@/lib/transactionLifecycle";
 
@@ -48,7 +54,8 @@ export type FactoryAuthorizationStatus =
   | "network-unknown"
   | "wrong-network"
   | "unauthorized"
-  | "read-failed";
+  | "read-failed"
+  | "mainnet-writes-disabled";
 
 function authorizationMessage(status: FactoryAuthorizationStatus): string | null {
   switch (status) {
@@ -66,6 +73,8 @@ function authorizationMessage(status: FactoryAuthorizationStatus): string | null
       return "Only the CommunityFactory owner can create communities during this pilot. This wallet cannot deploy one.";
     case "read-failed":
       return "Could not read the CommunityFactory owner. Retry to re-check before simulating.";
+    case "mainnet-writes-disabled":
+      return "Mainnet writes are disabled. Review docs/testnet-to-mainnet-runbook.md before enabling them with NEXT_PUBLIC_ALLOW_MAINNET_WRITES.";
     default:
       return null;
   }
@@ -143,10 +152,12 @@ export function CommunityDeploymentPanel({
       walletNetworkPassphrase,
     ],
   );
+  const expectedPassphrase =
+    NETWORKS[network]?.networkPassphrase ?? config.networkPassphrase;
   const networkMismatch =
     Boolean(address) &&
     walletNetworkPassphrase !== null &&
-    walletNetworkPassphrase !== config.networkPassphrase;
+    walletNetworkPassphrase !== expectedPassphrase;
   const walletNetworkUnknown = Boolean(address) && !walletNetworkPassphrase;
 
   useEffect(() => {
@@ -186,12 +197,21 @@ export function CommunityDeploymentPanel({
    */
   const staticAuthorization: FactoryAuthorizationStatus | null = useMemo(() => {
     if (transactionHash) return null;
+    const mainnetWritesAllowed =
+      network === "mainnet" || activeCapabilities?.network?.id === "mainnet"
+        ? (activeCapabilities?.network?.id === "mainnet"
+            ? areMainnetWritesAllowed(activeCapabilities)
+            : buildNetworkCapabilities("mainnet").mainnetWrites.available)
+        : true;
+    if (!mainnetWritesAllowed) {
+      return "mainnet-writes-disabled";
+    }
     if (!address) return "disconnected";
     if (walletNetworkUnknown) return "network-unknown";
     if (networkMismatch) return "wrong-network";
     if (!factoryId) return "read-failed";
     return null;
-  }, [address, factoryId, networkMismatch, transactionHash, walletNetworkUnknown]);
+  }, [address, factoryId, network, networkMismatch, transactionHash, walletNetworkUnknown]);
 
   const authorization: FactoryAuthorizationStatus = useMemo(() => {
     if (staticAuthorization !== null) return staticAuthorization;
@@ -346,7 +366,7 @@ export function CommunityDeploymentPanel({
         communityOwner: address,
         factoryId,
         network,
-        networkPassphrase: config.networkPassphrase,
+        networkPassphrase: expectedPassphrase,
         metadata,
         payload,
         governance,
@@ -458,7 +478,7 @@ export function CommunityDeploymentPanel({
           tone="error"
           className="mt-3 rounded-lg border border-rose-800/70 bg-rose-950/30 p-4 text-sm text-rose-200"
         >
-          Expected {network} ({config.networkPassphrase}). Detected{" "}
+          Expected {network} ({expectedPassphrase}). Detected{" "}
           {walletNetwork ?? "an unknown wallet network"} (
           {walletNetworkPassphrase ?? "passphrase unavailable"}). Simulation,
           signing, and submission are blocked. Your draft is preserved.
@@ -468,12 +488,34 @@ export function CommunityDeploymentPanel({
       {(authorization === "disconnected" ||
         authorization === "network-unknown" ||
         authorization === "unauthorized" ||
-        authorization === "read-failed") && (
+        authorization === "read-failed" ||
+        authorization === "mainnet-writes-disabled") && (
         <LiveStatus
-          tone={authorization === "unauthorized" ? "error" : "routine"}
+          tone={
+            authorization === "unauthorized" ||
+            authorization === "mainnet-writes-disabled"
+              ? "error"
+              : "routine"
+          }
           className="mt-3 rounded-lg border border-amber-800/70 bg-amber-950/30 p-4 text-sm text-amber-200"
         >
-          {authorizationMessage(authorization)}
+          {authorization === "mainnet-writes-disabled" ? (
+            <span>
+              Mainnet writes are disabled. Review{" "}
+              <a
+                href={MAINNET_RUNBOOK_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline font-medium hover:text-slate-100"
+              >
+                docs/testnet-to-mainnet-runbook.md
+              </a>{" "}
+              before enabling them with{" "}
+              <code className="font-mono">NEXT_PUBLIC_ALLOW_MAINNET_WRITES</code>.
+            </span>
+          ) : (
+            authorizationMessage(authorization)
+          )}
           {authorization === "read-failed" && (
             <button
               type="button"

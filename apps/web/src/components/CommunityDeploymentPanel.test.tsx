@@ -118,7 +118,7 @@ describe("CommunityDeploymentPanel", () => {
 
     await awaitReady();
     fireEvent.click(screen.getByRole("button", { name: "Simulate deployment" }));
-    expect(await screen.findByText(/12345678 stroops/)).toHaveTextContent(
+    expect((await screen.findAllByText(/12345678 stroops/))[0]).toHaveTextContent(
       "1.2345678 XLM",
     );
     fireEvent.click(screen.getByRole("button", { name: "Approve and deploy" }));
@@ -161,7 +161,7 @@ describe("CommunityDeploymentPanel", () => {
 
     await awaitReady();
     fireEvent.click(screen.getByRole("button", { name: "Simulate deployment" }));
-    await screen.findByText(/12345678 stroops/);
+    await screen.findAllByText(/12345678 stroops/);
     fireEvent.click(screen.getByRole("button", { name: "Approve and deploy" }));
     expect(
       (await screen.findAllByText(/fresh sequence, timeout/))[0],
@@ -318,5 +318,32 @@ describe("CommunityDeploymentPanel", () => {
       /Pin the metadata documents above to unlock simulation/,
     );
     expect(deployment.simulate).not.toHaveBeenCalled();
+  });
+
+  it("gates deployment on mainnet when writes are disabled and displays runbook link", async () => {
+    const deployment = adapter();
+    mocks.getE2EBridge.mockReturnValue({ deployment });
+    mocks.useWallet.mockReturnValue({
+      address,
+      signTransaction: vi.fn(),
+      walletNetwork: "mainnet",
+      walletNetworkPassphrase: "Public Global Stellar Network ; September 2015",
+    });
+    render(<CommunityDeploymentPanel {...props} network="mainnet" />);
+
+    expect(
+      await screen.findByText(/Mainnet writes are disabled/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "docs/testnet-to-mainnet-runbook.md" }),
+    ).toHaveAttribute(
+      "href",
+      "https://github.com/stolla-labs/stolla/blob/main/docs/testnet-to-mainnet-runbook.md",
+    );
+    expect(
+      screen.getByRole("button", { name: "Simulate deployment" }),
+    ).toBeDisabled();
+    expect(deployment.simulate).not.toHaveBeenCalled();
+    expect(deployment.signAndSubmit).not.toHaveBeenCalled();
   });
 });

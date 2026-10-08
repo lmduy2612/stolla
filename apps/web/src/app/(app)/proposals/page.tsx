@@ -13,6 +13,7 @@ import {
   PROPOSAL_STATE_ORDER,
 } from "@/lib/proposalState";
 import { contractIds } from "@/lib/stellar";
+import { MAINNET_RUNBOOK_URL, areMainnetWritesAllowed } from "@/lib/network";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ProposalSummaryCard } from "@/components/ProposalSummaryCard";
 import { ProposalMetadataFields } from "@/components/proposal/ProposalMetadataFields";
@@ -239,6 +240,13 @@ export default function ProposalsPage() {
       setStatus({ message: "Connect your wallet first.", tone: "error" });
       return;
     }
+    if (!areMainnetWritesAllowed()) {
+      setStatus({
+        message: "Mainnet proposal creation is disabled.",
+        tone: "error",
+      });
+      return;
+    }
 
     const draftSnapshot: ProposalMetadataDraft = {
       title: metadataDraft.title,
@@ -383,9 +391,17 @@ export default function ProposalsPage() {
           <AppButton
             tone="primary"
             onClick={() => void handleCreateProposal()}
-            disabled={!address || proposeLifecycle.isInFlight}
+            disabled={
+              !address ||
+              proposeLifecycle.isInFlight ||
+              !areMainnetWritesAllowed()
+            }
             aria-describedby={
-              !address ? "create-proposal-disabled-reason" : undefined
+              !address
+                ? "create-proposal-disabled-reason"
+                : !areMainnetWritesAllowed()
+                  ? "create-proposal-mainnet-disabled-reason"
+                  : undefined
             }
             className="mt-3 w-full sm:w-auto"
           >
@@ -400,6 +416,25 @@ export default function ProposalsPage() {
             >
               Connect your wallet to create a proposal.
             </p>
+          )}
+          {!areMainnetWritesAllowed() && (
+            <LiveStatus
+              tone="routine"
+              id="create-proposal-mainnet-disabled-reason"
+              className="mt-2 rounded-lg border border-amber-800/70 bg-amber-950/30 p-3 text-sm text-amber-200"
+            >
+              Mainnet proposal creation is disabled. Review{" "}
+              <a
+                href={MAINNET_RUNBOOK_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline font-medium hover:text-slate-100"
+              >
+                docs/testnet-to-mainnet-runbook.md
+              </a>{" "}
+              before enabling them with{" "}
+              <code className="font-mono">NEXT_PUBLIC_ALLOW_MAINNET_WRITES</code>.
+            </LiveStatus>
           )}
           <TransactionLifecycleStatus
             stage={proposeLifecycle.stage}

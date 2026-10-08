@@ -356,4 +356,60 @@ describe("ProposalsPage create lifecycle", () => {
     expect(screen.queryByText(/Propose failed/i)).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Title (required)" })).toHaveValue("");
   });
+
+  it("gates proposal creation on mainnet when writes are disabled and displays runbook link", async () => {
+    const originalNetwork = process.env.NEXT_PUBLIC_STELLAR_NETWORK;
+    const originalWrites = process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES;
+    try {
+      process.env.NEXT_PUBLIC_STELLAR_NETWORK = "mainnet";
+      delete process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES;
+
+      render(<ProposalsPage />);
+      expect(
+        await screen.findByText(/Mainnet proposal creation is disabled/),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: "docs/testnet-to-mainnet-runbook.md" }),
+      ).toHaveAttribute(
+        "href",
+        "https://github.com/stolla-labs/stolla/blob/main/docs/testnet-to-mainnet-runbook.md",
+      );
+
+      const proposeButton = screen.getByRole("button", { name: "Create proposal" });
+      expect(proposeButton).toBeDisabled();
+      fireEvent.click(proposeButton);
+      expect(mocks.createGovernorClient).not.toHaveBeenCalled();
+    } finally {
+      process.env.NEXT_PUBLIC_STELLAR_NETWORK = originalNetwork;
+      if (originalWrites !== undefined) {
+        process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES = originalWrites;
+      } else {
+        delete process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES;
+      }
+    }
+  });
+
+  it("allows proposal creation on mainnet when NEXT_PUBLIC_ALLOW_MAINNET_WRITES=true", async () => {
+    const originalNetwork = process.env.NEXT_PUBLIC_STELLAR_NETWORK;
+    const originalWrites = process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES;
+    try {
+      process.env.NEXT_PUBLIC_STELLAR_NETWORK = "mainnet";
+      process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES = "true";
+
+      render(<ProposalsPage />);
+      expect(
+        screen.queryByText(/Mainnet proposal creation is disabled/),
+      ).not.toBeInTheDocument();
+
+      const proposeButton = screen.getByRole("button", { name: "Create proposal" });
+      expect(proposeButton).not.toBeDisabled();
+    } finally {
+      process.env.NEXT_PUBLIC_STELLAR_NETWORK = originalNetwork;
+      if (originalWrites !== undefined) {
+        process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES = originalWrites;
+      } else {
+        delete process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES;
+      }
+    }
+  });
 });

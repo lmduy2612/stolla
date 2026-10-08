@@ -23,6 +23,9 @@ const publicCapabilityEnvironment = {
     process.env.NEXT_PUBLIC_GOVERNOR_CONTRACT_ID,
   NEXT_PUBLIC_GOVERNOR_START_LEDGER:
     process.env.NEXT_PUBLIC_GOVERNOR_START_LEDGER,
+  NEXT_PUBLIC_ALLOW_MAINNET_WRITES:
+    process.env.NEXT_PUBLIC_ALLOW_MAINNET_WRITES,
+  ALLOW_MAINNET_WRITES: process.env.ALLOW_MAINNET_WRITES,
 };
 
 /** Single typed source for the active network and every deployment capability. */
@@ -31,6 +34,10 @@ export const activeCapabilities = buildNetworkCapabilities(
   publicCapabilityEnvironment,
 );
 export const activeNetwork = activeCapabilities.network;
+
+export function areActiveWritesAllowed(): boolean {
+  return activeCapabilities.mainnetWrites.available;
+}
 
 /** Compatibility view for callers that enumerate supported deployment networks. */
 export const stellarConfig = {

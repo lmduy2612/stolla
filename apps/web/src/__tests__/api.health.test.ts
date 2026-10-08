@@ -9,6 +9,8 @@ const healthEnvKeys = [
   "NEXT_PUBLIC_GOVERNOR_CONTRACT_ID",
   "NEXT_PUBLIC_COMMUNITY_FACTORY_CONTRACT_ID",
   "NEXT_PUBLIC_GOVERNOR_START_LEDGER",
+  "NEXT_PUBLIC_ALLOW_MAINNET_WRITES",
+  "ALLOW_MAINNET_WRITES",
 ] as const;
 
 const contractIds = {
@@ -67,6 +69,7 @@ describe("GET /api/health", () => {
         communityFactory: true,
         legacyContracts: true,
         proposalDiscovery: true,
+        mainnetWrites: true,
       },
       unavailableCapabilities: [],
     });
@@ -154,5 +157,24 @@ describe("GET /api/health", () => {
     expect(body.contracts.allConfigured).toBe(false);
     expect(body.capabilities.communityFactory).toBe(false);
     expect(body.unavailableCapabilities).toContain("communityFactory");
+  });
+
+  it("reports mainnet writes unavailable by default on mainnet and available when enabled", async () => {
+    const defaultMainnet = await requestHealth({
+      NEXT_PUBLIC_STELLAR_NETWORK: "mainnet",
+      NEXT_PUBLIC_STELLAR_MAINNET_RPC_URL: "https://rpc.mainnet.example",
+      ...contractIds,
+    });
+    expect(defaultMainnet.body.capabilities.mainnetWrites).toBe(false);
+    expect(defaultMainnet.body.unavailableCapabilities).toContain("mainnetWrites");
+
+    const enabledMainnet = await requestHealth({
+      NEXT_PUBLIC_STELLAR_NETWORK: "mainnet",
+      NEXT_PUBLIC_STELLAR_MAINNET_RPC_URL: "https://rpc.mainnet.example",
+      NEXT_PUBLIC_ALLOW_MAINNET_WRITES: "true",
+      ...contractIds,
+    });
+    expect(enabledMainnet.body.capabilities.mainnetWrites).toBe(true);
+    expect(enabledMainnet.body.unavailableCapabilities).not.toContain("mainnetWrites");
   });
 });

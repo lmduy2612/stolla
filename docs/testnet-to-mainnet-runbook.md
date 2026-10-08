@@ -487,6 +487,9 @@ NEXT_PUBLIC_STELLAR_RPC_URL=<approved-mainnet-rpc>
 NEXT_PUBLIC_NFT_CONTRACT_ID=<verified-mainnet-nft-id>
 NEXT_PUBLIC_GOVERNOR_CONTRACT_ID=<verified-mainnet-governor-id>
 NEXT_PUBLIC_GOVERNOR_START_LEDGER=<governor-deployment-ledger>
+# Gate mainnet write CTAs (deploy community, mint NFT, propose).
+# Keep false during initial read-only verification; set to true only after smoke checks pass.
+NEXT_PUBLIC_ALLOW_MAINNET_WRITES=false
 ```
 
 Add Registry, CommunityFactory, Timelock, and Treasury variables when those
