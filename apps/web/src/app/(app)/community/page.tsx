@@ -42,6 +42,7 @@ import { useOperationLifecycle } from "@/hooks/useOperationLifecycle";
 import { validateMintTokenUri } from "@/lib/community/mint-token-uri";
 import { SelfDelegateCallout } from "@/components/community/SelfDelegateCallout";
 import { VotingPowerCompositionDisplay } from "@/components/community/VotingPowerCompositionDisplay";
+import { CommunityBatchMintForm } from "@/components/community/CommunityBatchMintForm";
 import {
   loadCommunityData,
   runCommunityRefresh,
@@ -96,6 +97,7 @@ export default function CommunityPage() {
   const [publishedToken, setPublishedToken] =
     useState<PublishedTokenMetadata | null>(null);
   const [recipientError, setRecipientError] = useState<string | null>(null);
+  const [mintMode, setMintMode] = useState<"single" | "batch">("single");
   const pin = useMemo(() => getE2EBridge()?.pin ?? createIpfsPinClient(), []);
   const pinInFlight = useRef(false);
   const [status, setStatus] = useState<ActionStatus | null>(null);
@@ -553,9 +555,48 @@ export default function CommunityPage() {
           )}
 
           <section className="min-w-0 rounded-xl border border-slate-800 bg-[#151b2b] p-4 sm:p-5">
-            <h2 className="font-semibold text-slate-100">Mint NFT (owner only)</h2>
-            <PreSubmitSummary simulation={null} onConfirm={() => void handleMint()} />
-            <div className="mt-4 min-w-0 space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="font-semibold text-slate-100">Mint NFT (owner only)</h2>
+              <div className="inline-flex rounded-lg border border-slate-700 bg-[#0b0f19] p-0.5 text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => setMintMode("single")}
+                  className={`rounded-md px-3 py-1.5 transition-colors ${
+                    mintMode === "single"
+                      ? "bg-slate-800 text-slate-100 font-semibold"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                  aria-pressed={mintMode === "single"}
+                >
+                  Single recipient
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMintMode("batch")}
+                  className={`rounded-md px-3 py-1.5 transition-colors ${
+                    mintMode === "batch"
+                      ? "bg-slate-800 text-slate-100 font-semibold"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                  aria-pressed={mintMode === "batch"}
+                >
+                  Batch mint
+                </button>
+              </div>
+            </div>
+
+            {mintMode === "batch" ? (
+              <div className="mt-4">
+                <CommunityBatchMintForm
+                  nftContractId={activeNftContract}
+                  onMintComplete={refresh}
+                  pinClient={pin}
+                />
+              </div>
+            ) : (
+              <>
+                <PreSubmitSummary simulation={null} onConfirm={() => void handleMint()} />
+                <div className="mt-4 min-w-0 space-y-4">
               <div>
                 <label
                   htmlFor="recipient-address"
@@ -784,6 +825,8 @@ export default function CommunityPage() {
                 }}
               />
             </div>
+              </>
+            )}
           </section>
         </div>
       )}
