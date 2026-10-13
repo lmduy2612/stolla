@@ -218,14 +218,23 @@ export default function CommunitiesPage() {
             wallet connection is required.
           </p>
         </div>
-        <AppLinkButton
-          href="/communities/create"
-          tone="primary"
-          className="shrink-0 w-full sm:w-auto"
-          aria-disabled={factoryUnavailable}
-        >
-          Create a community
-        </AppLinkButton>
+        <div className="flex flex-wrap items-center gap-2">
+          <AppLinkButton
+            href="/communities/activity"
+            tone="secondary"
+            className="shrink-0 w-full sm:w-auto"
+          >
+            My activity feed
+          </AppLinkButton>
+          <AppLinkButton
+            href="/communities/create"
+            tone="primary"
+            className="shrink-0 w-full sm:w-auto"
+            aria-disabled={factoryUnavailable}
+          >
+            Create a community
+          </AppLinkButton>
+        </div>
       </div>
 
       <div className="mt-6 max-w-xl">

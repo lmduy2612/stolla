@@ -323,8 +323,18 @@ export async function getCommunity(
   return { status: "found", community: await hydrateRecord(record) };
 }
 
+export function isCommunityFactoryConfigured(): boolean {
+  try {
+    requireCommunityFactoryId();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Production CommunityRegistry adapter backed by CommunityFactory. */
 export const communityRegistry: CommunityRegistry = {
   list: listCommunities,
   get: getCommunity,
 };
+
