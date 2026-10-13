@@ -76,6 +76,15 @@ pub struct CommunityPage {
 }
 
 #[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum CommunityLifecycleStatus {
+    Active = 0,
+    Paused = 1,
+    Archived = 2,
+}
+
+#[contracttype]
 #[derive(Clone)]
 enum DataKey {
     Owner,
@@ -87,6 +96,7 @@ enum DataKey {
     CommunityCount,
     Community(BytesN<32>),
     CommunityAt(u32),
+    CommunityStatus(BytesN<32>),
 }
 
 #[contracterror]
@@ -109,6 +119,8 @@ pub enum FactoryError {
     InvalidOwnershipTransfer = 14,
     NoPendingOwner = 15,
     PendingOwnerExpired = 16,
+    UnauthorizedCommunityOwner = 17,
+    CommunityNotFound = 18,
 }
 
 #[contractevent]
@@ -156,6 +168,16 @@ pub struct OwnershipTransferStarted {
 pub struct OwnershipTransferred {
     pub old_owner: Address,
     pub new_owner: Address,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CommunityStatusChanged {
+    #[topic]
+    pub community_id: BytesN<32>,
+    pub caller: Address,
+    pub old_status: CommunityLifecycleStatus,
+    pub new_status: CommunityLifecycleStatus,
 }
 
 #[contract]
@@ -382,6 +404,71 @@ impl CommunityFactory {
             records,
             next_cursor: if end < count { Some(end) } else { None },
         })
+    }
+
+    pub fn set_community_status(
+        e: &Env,
+        caller: Address,
+        community_id: BytesN<32>,
+        status: CommunityLifecycleStatus,
+    ) -> Result<(), FactoryError> {
+        caller.require_auth();
+        extend_instance_ttl(e);
+
+        let community_key = DataKey::Community(community_id.clone());
+        let record: CommunityRecord = e
+            .storage()
+            .persistent()
+            .get(&community_key)
+            .ok_or(FactoryError::CommunityNotFound)?;
+
+        let owner = owner(e);
+        if caller != record.community_owner && caller != owner {
+            return Err(FactoryError::UnauthorizedCommunityOwner);
+        }
+
+        let status_key = DataKey::CommunityStatus(community_id.clone());
+        let old_status = e
+            .storage()
+            .persistent()
+            .get(&status_key)
+            .unwrap_or(CommunityLifecycleStatus::Active);
+
+        e.storage().persistent().set(&status_key, &status);
+        e.storage().persistent().extend_ttl(
+            &status_key,
+            FACTORY_TTL_THRESHOLD,
+            FACTORY_TTL_EXTEND,
+        );
+
+        CommunityStatusChanged {
+            community_id,
+            caller,
+            old_status,
+            new_status: status,
+        }
+        .publish(e);
+
+        Ok(())
+    }
+
+    pub fn get_community_status(
+        e: &Env,
+        community_id: BytesN<32>,
+    ) -> Result<CommunityLifecycleStatus, FactoryError> {
+        extend_instance_ttl(e);
+        let community_key = DataKey::Community(community_id.clone());
+        if !e.storage().persistent().has(&community_key) {
+            return Err(FactoryError::CommunityNotFound);
+        }
+
+        let status_key = DataKey::CommunityStatus(community_id);
+        let status = e
+            .storage()
+            .persistent()
+            .get(&status_key)
+            .unwrap_or(CommunityLifecycleStatus::Active);
+        Ok(status)
     }
 
     pub fn set_code_hashes(

@@ -10,8 +10,9 @@ use soroban_sdk::{
 use stellar_governance::governor::GovernorClient;
 
 use crate::{
-    derive_salt, CommunityCreated, CommunityFactory, CommunityFactoryClient, CommunityMetadata,
-    CreateCommunityRequest, FactoryError, GovernanceParams, METADATA_SCHEMA_VERSION,
+    derive_salt, CommunityCreated, CommunityFactory, CommunityFactoryClient,
+    CommunityLifecycleStatus, CommunityMetadata, CreateCommunityRequest, FactoryError,
+    GovernanceParams, METADATA_SCHEMA_VERSION,
 };
 
 const NFT_WASM: &[u8] = include_bytes!("../test_wasm/community_nft.wasm");
@@ -354,3 +355,83 @@ fn ownership_transfer_changes_creation_authority_only_after_acceptance() {
     client.create_community(&new_owner, &fixture.request(b"new-owner"));
     assert_eq!(client.community_count(), 1);
 }
+
+#[test]
+fn community_lifecycle_status_pause_and_archive_by_owner_and_factory_owner() {
+    let fixture = Fixture::new();
+    fixture.e.mock_all_auths();
+    let client = fixture.client();
+
+    let community_owner = Address::generate(&fixture.e);
+    let mut request = fixture.request(b"lifecycle-test");
+    request.community_owner = community_owner.clone();
+
+    let record = client.create_community(&fixture.owner, &request);
+    let community_id = record.community_id;
+
+    // Default status is Active
+    assert_eq!(
+        client.get_community_status(&community_id),
+        CommunityLifecycleStatus::Active
+    );
+
+    // Community owner can pause
+    client.set_community_status(
+        &community_owner,
+        &community_id,
+        &CommunityLifecycleStatus::Paused,
+    );
+    assert_eq!(
+        client.get_community_status(&community_id),
+        CommunityLifecycleStatus::Paused
+    );
+
+    // Community owner can archive
+    client.set_community_status(
+        &community_owner,
+        &community_id,
+        &CommunityLifecycleStatus::Archived,
+    );
+    assert_eq!(
+        client.get_community_status(&community_id),
+        CommunityLifecycleStatus::Archived
+    );
+
+    // Factory owner can also set status (e.g. unpause back to Active)
+    client.set_community_status(
+        &fixture.owner,
+        &community_id,
+        &CommunityLifecycleStatus::Active,
+    );
+    assert_eq!(
+        client.get_community_status(&community_id),
+        CommunityLifecycleStatus::Active
+    );
+
+    // Unauthorized caller rejected
+    let stranger = Address::generate(&fixture.e);
+    assert_eq!(
+        client.try_set_community_status(
+            &stranger,
+            &community_id,
+            &CommunityLifecycleStatus::Paused
+        ),
+        Err(Ok(FactoryError::UnauthorizedCommunityOwner))
+    );
+
+    // Non-existent community rejected
+    let fake_id = BytesN::from_array(&fixture.e, &[7; 32]);
+    assert_eq!(
+        client.try_get_community_status(&fake_id),
+        Err(Ok(FactoryError::CommunityNotFound))
+    );
+    assert_eq!(
+        client.try_set_community_status(
+            &community_owner,
+            &fake_id,
+            &CommunityLifecycleStatus::Paused
+        ),
+        Err(Ok(FactoryError::CommunityNotFound))
+    );
+}
+

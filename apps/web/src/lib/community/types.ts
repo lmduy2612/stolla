@@ -32,11 +32,14 @@ export type GovernanceSnapshot = {
   unavailableFields: string[];
 };
 
+export type CommunityStatus = "active" | "paused" | "archived";
+
 export type Community = {
   record: CommunityRegistryRecord;
   metadata: CommunityMetadata | null;
   metadataError: string | null;
   governance: GovernanceSnapshot;
+  status?: CommunityStatus;
 };
 
 /** @deprecated Prefer `Community`. Kept for existing imports. */

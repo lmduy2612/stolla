@@ -49,6 +49,19 @@ export function CommunityCard({ community }: { community: CommunityView }) {
                 {membershipText}
               </span>
             ) : null}
+            {community.status && community.status !== "active" ? (
+              <span
+                data-testid="community-status"
+                data-status={community.status}
+                className={`inline-flex shrink-0 items-center rounded-md border px-2 py-0.5 text-[11px] font-medium leading-4 ${
+                  community.status === "paused"
+                    ? "border-amber-800/80 bg-amber-950/50 text-amber-200"
+                    : "border-slate-700 bg-slate-900/60 text-slate-400"
+                }`}
+              >
+                {community.status === "paused" ? "Paused" : "Archived"}
+              </span>
+            ) : null}
           </div>
           <p
             className="mt-0.5 break-all font-mono text-xs text-slate-500"
