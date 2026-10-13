@@ -2,12 +2,10 @@
 
 ## Status
 
-Proposed
+Partially Implemented
 
-This ADR defines the architecture required before Stolla enables privileged or
-treasury-bearing proposals. The current deployment remains a signaling-oriented
-Governor with immediate, open execution after a proposal succeeds. That model
-must not control mainnet assets.
+The `CommunityTreasury` and `CommunityTimelock` contracts have been implemented per #345 and #346.
+Remaining work: Frontend queue/execute UI integration and factory bundle deployment.
 
 ## Context
 
