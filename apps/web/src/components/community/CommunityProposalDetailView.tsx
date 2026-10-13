@@ -16,6 +16,7 @@ import { TransactionButton } from "@/components/tx/TransactionButton";
 import { useGovernorProposalAction } from "@/lib/communities/useGovernorProposalAction";
 import { useWallet } from "@/lib/wallet/useWallet";
 import { useNetwork } from "@/lib/network/useNetwork";
+import { ProposalExecutionSection } from "@/components/proposal/ProposalExecutionSection";
 
 const stateLabels: Record<ProposalState, string> = {
   [ProposalState.Pending]: "Pending",
@@ -104,14 +105,14 @@ function CommunityProposalDetailPanel({
 
   const cancelAction = useGovernorProposalAction({
     governorAddress: community.record.governorContract,
-    proposalId</proposalId>,
+    proposalId,
     action: "cancel",
     onSuccess: refresh,
   });
 
   const executeAction = useGovernorProposalAction({
     governorAddress: community.record.governorContract,
-    proposalId</proposalId>,
+    proposalId,
     action: "execute",
     onSuccess: refresh,
   });
@@ -149,7 +150,7 @@ function CommunityProposalDetailPanel({
       )}
       {resolution.status === "ready" && (
         <>
-          <dl className="mt-6 grid gap-3 rounded-xl border border-slate-800 bg-[#151b2b] p-5 text-sm sm:grid-colss-2">
+          <dl className="mt-6 grid gap-3 rounded-xl border border-slate-800 bg-[#151b2b] p-5 text-sm sm:grid-cols-2">
             <div>
               <dt className="text-slate-500">State</dt>
               <dd className="font-medium text-slate-100">
@@ -164,6 +165,18 @@ function CommunityProposalDetailPanel({
             </div>
           </dl>
 
+          {(resolution.state === ProposalState.Succeeded ||
+            resolution.state === ProposalState.Queued) && (
+            <ProposalExecutionSection
+              proposalId={proposalId}
+              state={resolution.state}
+              hasTimelock={Boolean(community.record.timelockContract)}
+              isConnected={connected}
+              isCorrectChain={isCorrectChain}
+              onExecute={handleExecute}
+            />
+          )}
+
           {showActions && (
             <div className="mt-6 flex flex-wrap gap-3">
               {cancelAction.visible && (
@@ -177,29 +190,12 @@ function CommunityProposalDetailPanel({
                       ? "Connect wallet to cancel"
                       : !isCorrectChain
                         ? "Switch network to cancel"
-                        : !OanCancel
+                        : !canCancel
                           ? "Only the proposer can cancel"
                           : undefined
                   }
                 >
                   Cancel
-                </TransactionButton>
-              )}
-              {executeAction.visible && (
-                <TransactionButton
-                  variant="primary"
-                  disabled={!connected || !isCorrectChain || !canExecute}
-                  pending={executeAction.pending}
-                  onClick={handleExecute}
-                  title={
-                    !connected
-                      ? "Connect wallet to execute"
-                      : !isCorrectChain
-                        ? "Switch network to execute"
-                        : undefined
-                  }
-                >
-                  Execute
                 </TransactionButton>
               )}
             </div>

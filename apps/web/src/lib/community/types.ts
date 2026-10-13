@@ -15,6 +15,8 @@ export type CommunityRegistryRecord = {
   id: string;
   nftContract: string;
   governorContract: string;
+  timelockContract?: string;
+  treasuryContract?: string;
   creator: string;
   communityOwner: string;
   createdAtLedger: number;
