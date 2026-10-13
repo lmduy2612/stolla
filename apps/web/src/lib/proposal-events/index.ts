@@ -90,3 +90,14 @@ export {
   type ProposalDiscoveryErrorKind,
   type ProposalDiscoveryErrorMapping,
 } from "./errors";
+
+export {
+  createProposalIndexerClient,
+  resolveProposalsWithIndexerFallback,
+  type IndexedProposalItem,
+  type IndexerSyncStatus,
+  type IndexerProposalListResponse,
+  type ProposalIndexerClient,
+  type FallbackResolutionResult,
+} from "./indexer";
+

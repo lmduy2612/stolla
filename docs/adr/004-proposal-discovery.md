@@ -132,7 +132,7 @@ For that reason, v0.2 is acceptable for a single-community testnet deployment,
 but it is not the terminal architecture for long-lived public governance
 history.
 
-## Indexer Escalation Criteria
+## Indexer Escalation Criteria & Retention Boundary
 
 Adopt a persistent indexer when any of these become true:
 
@@ -144,8 +144,14 @@ Adopt a persistent indexer when any of these become true:
 - The app needs stronger availability than a single RPC provider can offer
 - Operators need auditable backfills, reorg handling, or historical repairs
 
-At that point, the indexer becomes the system of record for proposal discovery,
-with RPC remaining the ingestion source.
+### Hybrid Retention Fallback Boundary (Issue #344)
+
+The boundary between direct RPC discovery and persistent indexing is formalized as:
+
+1. **Live RPC Primary Window**: When the configured start ledger is within the RPC retention window (`clamped === false`), direct RPC event discovery provides authoritative, real-time proposal data.
+2. **Indexer Fallback Window**: When the start ledger is clamped by RPC retention (`clamped === true`), the client queries the persistent proposal indexer (`/v1/communities/{communityId}/proposals` per `docs/community-proposal-indexing.md`) to backfill proposals older than RPC retention.
+3. **Graceful Partial-History Degradation**: If the indexer is unreachable or unconfigured during a clamped scan, the UI surfaces an actionable partial-history state and banner rather than a blank page. Live on-chain state and vote calls remain directed to live Soroban RPC.
+
 
 ## Consequences
 
